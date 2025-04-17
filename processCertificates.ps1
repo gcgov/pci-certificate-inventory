@@ -1,4 +1,4 @@
-#net use \\c-drupal\certs /user:c-drupal\lsv-pcicertinventory /persistent:yes
+Invoke-WebRequest https://apps.garrettcountymd.gov/cron-monitor/jobHistory/start/68015c988ebd7db54d09ed20
 
 #securely store the pfx password so this can be run as scheduled task
 $inventoryDirectory = "\\file\PCICertificateInventory\Certificates\"
@@ -93,3 +93,6 @@ foreach($pfxFile in $pfxFiles) {
 
 Write-Host "Export full SQL inventory to CSV: \\file\PCICertificateInventory\inventory.csv"
 Invoke-Sqlcmd -ServerInstance "c-sql-2019" -Database "PCICertificateInventory" -Encrypt "Optional" -Query "select * from certificates;" -Variable $cert | Export-Csv -Path "\\file\PCICertificateInventory\inventory.csv"
+
+
+Invoke-WebRequest https://apps.garrettcountymd.gov/cron-monitor/jobHistory/end/68015c988ebd7db54d09ed20
