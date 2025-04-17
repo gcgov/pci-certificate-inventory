@@ -1,0 +1,2 @@
+# PCI Certificate Inventory
+See [OneNote > Compliance > PCI Compliance > Certificate Inventory](https://garrettcounty.sharepoint.com/DoTCom/_layouts/OneNote.aspx?id=%2FDoTCom%2FSiteAssets%2FDoTCom%20Notebook&wd=target%28Compliance.one%7C3380D038-81A1-4E0B-B191-75A599000076%2FCertificate%20Inventory%7CDF794F89-639A-4F39-B53A-6E00441DF11D%2F%29)
