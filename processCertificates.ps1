@@ -1,8 +1,27 @@
-net use \\c-drupal\certs /user:c-drupal\lsv-pcicertinventory /persistent:yes
+#net use \\c-drupal\certs /user:c-drupal\lsv-pcicertinventory /persistent:yes
 
 #securely store the pfx password so this can be run as scheduled task
 $inventoryDirectory = "\\file\PCICertificateInventory\Certificates\"
 $pfxPasswordFilePath = "\\file\PCICertificateInventory\.pfx-pass-encrypted\$($env:computername)-$([Environment]::UserName).txt"
+$cDrupalPasswordFilePath = "\\file\PCICertificateInventory\.pfx-pass-encrypted\$($env:computername)-$([Environment]::UserName)-c-drupal.txt"
+
+if(-not(Test-Path $cDrupalPasswordFilePath)) {
+    Write-Host "Please enter the password for c-drupal\lsv-pcicertinventory:"
+    $cdrupalPassword = Read-Host -AsSecureString
+
+    # Convert the secure string to an encrypted standard string
+    $encryptedCDrupalPassword = ConvertFrom-SecureString $cdrupalPassword
+
+    # Write the encrypted password to the file
+    Set-Content -Path $cDrupalPasswordFilePath -Value $encryptedCDrupalPassword
+
+    Write-Host "c-drupal\lsv-pcicertinventory password has been securely stored in $cDrupalPasswordFilePath."
+}
+$encryptedCDrupalPasswordString = Get-Content -Path $cDrupalPasswordFilePath
+$secureCDrupalPassword = ConvertTo-SecureString -String $encryptedCDrupalPasswordString
+
+$cDrupalCredential = New-Object System.Management.Automation.PsCredential("c-drupal\lsv-pcicertinventory", $secureCDrupalPassword)
+New-PSDrive -Name "cdrupalcerts" -PSProvider "FileSystem" -Root "\\c-drupal\certs" -Credential $cDrupalCredential
 
 if(-not(Test-Path $pfxPasswordFilePath)) {
     Write-Host "Please enter the PFX password:"
