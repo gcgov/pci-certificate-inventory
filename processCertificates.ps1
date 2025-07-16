@@ -5,6 +5,50 @@ $inventoryDirectory = "\\file\PCICertificateInventory\Certificates\"
 $pfxPasswordFilePath = "\\file\PCICertificateInventory\.pfx-pass-encrypted\$($env:computername)-$([Environment]::UserName).txt"
 $cDrupalPasswordFilePath = "\\file\PCICertificateInventory\.pfx-pass-encrypted\$($env:computername)-$([Environment]::UserName)-c-drupal.txt"
 
+$paBaseUrl = "https://pa-spare.garrettcounty.org/api/"
+#PA Credentials
+#how to generate encrypted credential files
+#$Encrypted = ConvertTo-SecureString 'newpassword' -AsPlainText -Force
+#$Encrypted  | ConvertFrom-SecureString | Out-File "pa-pw.txt"
+$paEncryptedUsername = Get-Content "pa-un.txt" | ConvertTo-SecureString
+$paUsername = ConvertFrom-SecureString -SecureString $paEncryptedUsername -AsPlainText
+
+$paEncryptedPass = Get-Content "pa-pw.txt" | ConvertTo-SecureString
+$paPass = ConvertFrom-SecureString -SecureString $paEncryptedPass -AsPlainText
+
+$paBytes = [System.Text.Encoding]::ASCII.GetBytes($paUsername+':'+$paPass)
+$paBase64 = [System.Convert]::ToBase64String($paBytes)
+$paBasicAuthValue = "Basic $paBase64"
+$paAuthHeader = 'Authorization: {0}' -f $paBasicAuthValue
+
+function SaveCertToPaloAlto {
+    param (
+        [string]$baseUrl,
+        [string]$authHeader
+        [string]$pfxPassword,
+        [System.IO.FileInfo]$certFile
+    )
+    
+    $url = $baseUrl+"?type=import&category=keypair&passphrase="+$pfxPassword+"&format=pkcs12&certificate-name="+$certFile.BaseName
+    $form = 'file=@"{0}"' -f $certFile.FullName
+
+    Write-Host "--upload cert $($certFile.FullName)"
+    
+    #upload cert
+    curl --location $url --header $authHeader --form $form
+}
+
+function CommitPaloAltoChanges {
+    param (
+        [string]$baseUrl,
+        [string]$authHeader
+    )
+    Write-Host "commit changes"
+        
+    #commit
+    curl --location $baseUrl+"?type=commit&action=partial&cmd=%3Ccommit%3E%3C%2Fcommit%3E" --header $authHeader 
+}
+
 if(-not(Test-Path $cDrupalPasswordFilePath)) {
     Write-Host "Please enter the password for c-drupal\lsv-pcicertinventory:"
     $cdrupalPassword = Read-Host -AsSecureString
@@ -41,6 +85,7 @@ $securePfxPassword = ConvertTo-SecureString -String $encryptedPfxPasswordString
 $unsecurePfxPassword = [System.Net.NetworkCredential]::new("", $securePfxPassword).Password
 
 #get certificates from web servers
+$certsUpdatedOnPa = 0
 $serverNames = @('c-web', 'c-drupal', 'c-web2')
 foreach($serverName in $serverNames) {
     #create server name text file
@@ -55,9 +100,16 @@ foreach($serverName in $serverNames) {
     foreach($certFile in $certFiles) {
         Write-Host "Move $($certFile.FullName) to inventory $($inventoryDirectory)"
         Move-Item -Path "$($certFile.FullName)" -Destination "$($inventoryDirectory)" -Force
+
+        #save to pa
+        SaveCertToPaloAlto -baseUrl $paBaseUrl -authHeader $paAuthHeader -pfxPassword $unsecurePfxPassword -certFile $certFile
+        $certsUpdatedOnPa++
     }
 }
 
+if( $certsUpdatedOnPa -gt 0) {
+    CommitPaloAltoChanges -baseUrl $paBaseUrl -authHeader $paAuthHeader
+}
 
 #create inventory from certificates
 $pfxFiles = Get-ChildItem -Path "$($inventoryDirectory)" -Filter "*.pfx"
